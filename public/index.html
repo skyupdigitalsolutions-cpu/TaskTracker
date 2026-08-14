@@ -202,6 +202,24 @@
   .tbi-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .tbi-desc.st { text-decoration: line-through; color: var(--text-3); }
 
+  /* SYNC + HISTORY PANEL */
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 4px; transition: background .2s; }
+  .sync-dot.busy { background: var(--warn, #d99a2b); animation: pulse 1s infinite; }
+  .sync-dot.err { background: var(--danger); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .hist-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+  .hist-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .hist-title { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .hist-filter { font-size: 12px; padding: 5px 8px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface-2); color: var(--text); }
+  .hist-list { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+  .hist-item { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px; border-radius: 6px; background: var(--surface-2); font-size: 12px; }
+  .hist-icon { flex-shrink: 0; width: 18px; text-align: center; }
+  .hist-body { flex: 1; min-width: 0; }
+  .hist-actor { font-weight: 600; color: var(--text); }
+  .hist-detail { color: var(--text-2); }
+  .hist-meta { color: var(--text-3); font-size: 10px; margin-top: 2px; }
+  .hist-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 20px 0; }
+
   /* GATE */
   .gate { margin-top: 12px; background: var(--success-bg); border: 0.5px solid; border-color: #9FE1CB; border-radius: var(--radius); padding: 8px 10px; }
   .gate-lbl { font-size: 11px; font-weight: 600; color: var(--success-text); margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
@@ -287,7 +305,9 @@
   <div class="topbar">
     <div class="tb-logo">Transport <span>ERP</span> Tracker</div>
     <span class="tb-role-badge" id="topRoleBadge"></span>
+    <span id="syncIndicator" style="font-size:10px;color:var(--text-3);display:flex;align-items:center;"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">Synced</span></span>
     <button class="tb-btn" id="bpToggleBtn" onclick="toggleBlockerPanel()">⚠ All blockers</button>
+    <button class="tb-btn" onclick="toggleHistoryPanel()">🕓 History</button>
     <button class="tb-btn" onclick="exportProgress()">↓ Export CSV</button>
     <button class="tb-btn danger-btn" onclick="logout()">Switch role</button>
   </div>
@@ -295,6 +315,7 @@
     <div id="roNotice"></div>
     <div class="stats-row" id="statsRow"></div>
     <div id="blockerPanelWrap" style="display:none"></div>
+    <div id="historyPanelWrap" style="display:none"></div>
     <div class="controls">
       <div class="week-tabs" id="weekTabs"></div>
       <div class="sep"></div>
@@ -360,16 +381,54 @@ let state = {};
 let activeWeek = 0;
 let activeFilter = 'all';
 let showBlockerPanel = false;
+let showHistoryPanel = false;
+let historyDayFilter = 'all';
+let historyCache = [];
 let addingBlocker = {};
 let addingTaskBlocker = {};
 let dayInnerTab = {};
 
-/* ---------- STORAGE ---------- */
-function loadState() {
-  try { const s = localStorage.getItem('erp_tracker_v4'); if (s) state = JSON.parse(s); } catch(e){}
+/* ---------- STORAGE (shared, via API + D1) ---------- */
+function setSyncStatus(status) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  if (!dot || !label) return;
+  dot.classList.remove('busy','err');
+  if (status === 'busy') { dot.classList.add('busy'); label.textContent = 'Saving…'; }
+  else if (status === 'err') { dot.classList.add('err'); label.textContent = 'Save failed'; }
+  else { label.textContent = 'Synced'; }
 }
-function saveState() {
-  try { localStorage.setItem('erp_tracker_v4', JSON.stringify(state)); } catch(e){}
+function fmtDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}); } catch(e) { return ''; }
+}
+async function hydrateStateFromServer() {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) throw new Error('API error ' + res.status);
+    const data = await res.json();
+    const next = {};
+    // preserve local-only UI state (which day cards are expanded) across re-hydration
+    Object.keys(state).forEach(k => { if (k.startsWith('_open_')) next[k] = state[k]; });
+    (data.taskProgress||[]).forEach(r => { next[tkey(r.day, r.member, r.task)] = r.progress; });
+    (data.dayBlockers||[]).forEach(r => {
+      const k = bkey(r.day);
+      if (!next[k]) next[k] = [];
+      next[k].push({ id:r.id, desc:r.desc, owner:r.owner, sev:r.sev, resolved:!!r.resolved, date:fmtDate(r.created_at) });
+    });
+    (data.taskBlockers||[]).forEach(r => {
+      const k = tbkey(r.day, r.member, r.task);
+      if (!next[k]) next[k] = [];
+      next[k].push({ id:r.id, desc:r.desc, sev:r.sev, resolved:!!r.resolved, date:fmtDate(r.created_at) });
+    });
+    state = next;
+    setSyncStatus('ok');
+    return true;
+  } catch(e) {
+    console.warn('Could not load shared state from server:', e);
+    setSyncStatus('err');
+    return false;
+  }
 }
 
 /* ---------- KEYS ---------- */
@@ -413,10 +472,11 @@ function clearRoleSelection() {
   document.getElementById('loginBtn').disabled = true;
 }
 
-function doLogin() {
+async function doLogin() {
   if (!currentRole) return;
   const passInput = document.getElementById('loginPassInput');
   const err = document.getElementById('loginErr');
+  const loginBtn = document.getElementById('loginBtn');
   if (passInput.value !== currentRole.password) {
     err.textContent = 'Incorrect password. Try again.';
     passInput.value = '';
@@ -424,6 +484,15 @@ function doLogin() {
     return;
   }
   err.textContent = '';
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Loading shared data…';
+  const ok = await hydrateStateFromServer();
+  loginBtn.textContent = 'Continue';
+  loginBtn.disabled = false;
+  if (!ok) {
+    err.textContent = 'Could not reach the shared server. Check your connection and try again.';
+    return;
+  }
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'flex';
   const badge = document.getElementById('topRoleBadge');
@@ -452,12 +521,28 @@ function logout() {
 
 /* ---------- PROGRESS (per-task %) ---------- */
 function getTaskProgress(d,m,t){ return state[tkey(d,m,t)] || 0; }
-function setTaskProgress(d,m,t,val) {
+async function setTaskProgress(d,m,t,val) {
   if (!currentRole) return;
   if (!currentRole.canEdit.includes(m)) return;
-  state[tkey(d,m,t)] = val;
-  saveState();
+  const k = tkey(d,m,t);
+  const prev = state[k];
+  state[k] = val;
   render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/task-progress', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ day:d, member:m, task:t, value:val, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    setSyncStatus('ok');
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    state[k] = prev;
+    render();
+    alert('Could not save — check your connection and try again.');
+  }
 }
 function dayProgress(day) {
   let total=0, sum=0, done=0;
@@ -479,7 +564,6 @@ function totalProgress() {
 
 /* ---------- TASK-LEVEL BLOCKERS ---------- */
 function taskBlockers(d,m,t){ return state[tbkey(d,m,t)] || []; }
-function saveTaskBlockersArr(d,m,t,arr){ state[tbkey(d,m,t)] = arr; saveState(); }
 function allTaskBlockersFlat() {
   let out = [];
   DAYS.forEach(day => {
@@ -500,7 +584,7 @@ function dayTaskBlockersOpenCount(day) {
 }
 function startAddTaskBlocker(k){ if(!currentRole||currentRole.viewOnly) return; addingTaskBlocker[k]=true; render(); }
 function cancelAddTaskBlocker(k){ addingTaskBlocker[k]=false; render(); }
-function addTaskBlocker(d,m,t) {
+async function addTaskBlocker(d,m,t) {
   if (!currentRole || !currentRole.canEdit.includes(m)) return;
   const k = tkey(d,m,t);
   const desc = document.getElementById('tbf_desc_'+k);
@@ -508,27 +592,59 @@ function addTaskBlocker(d,m,t) {
   const err = document.getElementById('tbf_err_'+k);
   if (!desc.value.trim()) { err.textContent = 'Enter a description first'; return; }
   err.textContent = '';
-  const arr = taskBlockers(d,m,t);
-  arr.push({ id: Date.now(), desc: desc.value.trim(), sev: sev.value,
-    date: new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}), resolved:false });
-  saveTaskBlockersArr(d,m,t,arr);
-  addingTaskBlocker[k] = false;
-  render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/task-blocker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ op:'add', day:d, member:m, task:t, desc:desc.value.trim(), sev:sev.value, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    addingTaskBlocker[k] = false;
+    await hydrateStateFromServer();
+    render();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    err.textContent = 'Could not save — check your connection and try again.';
+  }
 }
-function resolveTaskBlocker(d,m,t,id) {
+async function resolveTaskBlocker(d,m,t,id) {
   if (!currentRole || !currentRole.canEdit.includes(m)) return;
-  const arr = taskBlockers(d,m,t).map(b => b.id===id ? {...b, resolved:!b.resolved} : b);
-  saveTaskBlockersArr(d,m,t,arr); render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/task-blocker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ op:'resolve', day:d, member:m, task:t, id, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    await hydrateStateFromServer();
+    render();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    alert('Could not update the blocker — check your connection and try again.');
+  }
 }
-function deleteTaskBlocker(d,m,t,id) {
+async function deleteTaskBlocker(d,m,t,id) {
   if (!currentRole || !currentRole.canEdit.includes(m)) return;
-  const arr = taskBlockers(d,m,t).filter(b => b.id!==id);
-  saveTaskBlockersArr(d,m,t,arr); render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/task-blocker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ op:'delete', day:d, member:m, task:t, id, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    await hydrateStateFromServer();
+    render();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    alert('Could not delete the blocker — check your connection and try again.');
+  }
 }
 
 /* ---------- BLOCKERS ---------- */
 function getBlockers(d) { return state[bkey(d)] || []; }
-function saveBlockers(d, arr) { state[bkey(d)] = arr; saveState(); }
 function allBlockers() {
   return DAYS.flatMap(day => getBlockers(day.d).map(b => ({...b, day:day.d, dayTitle:day.title})));
 }
@@ -537,7 +653,7 @@ function openBlockerCount() { return allBlockersCombined().filter(b=>!b.resolved
 
 function startAdd(d){ if(!currentRole||currentRole.viewOnly) return; addingBlocker[d]=true; render(); }
 function cancelAdd(d){ addingBlocker[d]=false; render(); }
-function addBlocker(d) {
+async function addBlocker(d) {
   if (!currentRole || currentRole.viewOnly) return;
   const desc = document.getElementById('bf_desc_'+d);
   const owner = document.getElementById('bf_owner_'+d);
@@ -545,26 +661,59 @@ function addBlocker(d) {
   const err = document.getElementById('bf_err_'+d);
   if (!desc.value.trim()) { err.textContent = 'Enter a description first'; return; }
   err.textContent = '';
-  const arr = getBlockers(d);
-  arr.push({ id: Date.now(), desc: desc.value.trim(), owner: owner.value.trim(), sev: sev.value,
-    date: new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}), resolved:false });
-  saveBlockers(d, arr);
-  addingBlocker[d] = false;
-  render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/day-blocker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ op:'add', day:d, desc:desc.value.trim(), owner:owner.value.trim(), sev:sev.value, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    addingBlocker[d] = false;
+    await hydrateStateFromServer();
+    render();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    err.textContent = 'Could not save — check your connection and try again.';
+  }
 }
-function resolveBlocker(d, id) {
+async function resolveBlocker(d, id) {
   if (!currentRole || currentRole.viewOnly) return;
-  const arr = getBlockers(d).map(b => b.id===id ? {...b, resolved:!b.resolved} : b);
-  saveBlockers(d, arr); render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/day-blocker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ op:'resolve', id, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    await hydrateStateFromServer();
+    render();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    alert('Could not update the blocker — check your connection and try again.');
+  }
 }
-function deleteBlocker(d, id) {
+async function deleteBlocker(d, id) {
   if (!currentRole || currentRole.viewOnly) return;
-  const arr = getBlockers(d).filter(b => b.id!==id);
-  saveBlockers(d, arr); render();
+  setSyncStatus('busy');
+  try {
+    const res = await fetch('/api/day-blocker', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ op:'delete', id, actor:currentRole.id, actorLabel:currentRole.label })
+    });
+    if (!res.ok) throw new Error('save failed');
+    await hydrateStateFromServer();
+    render();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err');
+    alert('Could not delete the blocker — check your connection and try again.');
+  }
 }
 
 /* ---------- UI CONTROLS ---------- */
-function toggleDay(d) { state['_open_'+d] = !state['_open_'+d]; saveState(); render(); }
+function toggleDay(d) { state['_open_'+d] = !state['_open_'+d]; render(); }
 function setWeek(w) { activeWeek = w; render(); }
 function setInnerTab(d, tab) { dayInnerTab[d] = tab; render(); }
 function setFilter(f, btn) {
@@ -615,6 +764,76 @@ function renderBlockerPanel() {
           </div>
         </div>
       </div>`).join('') : `<div class="bp-empty">No blockers logged yet.</div>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- HISTORY PANEL ---------- */
+function toggleHistoryPanel() {
+  showHistoryPanel = !showHistoryPanel;
+  if (showHistoryPanel) { loadHistory(); } else { render(); }
+}
+function changeHistoryDayFilter(val) {
+  historyDayFilter = val;
+  loadHistory();
+}
+async function loadHistory() {
+  try {
+    const url = historyDayFilter === 'all' ? '/api/history?limit=300' : `/api/history?day=${historyDayFilter}&limit=300`;
+    const res = await fetch(url);
+    const data = await res.json();
+    historyCache = data.history || [];
+  } catch(e) {
+    console.error(e);
+    historyCache = [];
+  }
+  render();
+}
+const HIST_ICON = {
+  task_progress: '📊',
+  day_blocker_add: '⚠', day_blocker_resolve: '✅', day_blocker_reopen: '↩️', day_blocker_delete: '🗑',
+  task_blocker_add: '⚠', task_blocker_resolve: '✅', task_blocker_reopen: '↩️', task_blocker_delete: '🗑',
+};
+const HIST_VERB = {
+  task_progress: 'updated progress on',
+  day_blocker_add: 'added a blocker on Day', day_blocker_resolve: 'resolved a blocker on Day', day_blocker_reopen: 'reopened a blocker on Day', day_blocker_delete: 'deleted a blocker on Day',
+  task_blocker_add: 'added a blocker on', task_blocker_resolve: 'resolved a blocker on', task_blocker_reopen: 'reopened a blocker on', task_blocker_delete: 'deleted a blocker on',
+};
+function histLine(h) {
+  const dayTitle = (DAYS.find(d=>d.d===h.day)||{}).title || '';
+  if (h.action === 'task_progress') {
+    return `<b class="hist-actor">${h.actor_label}</b> updated <b>${h.member} — ${h.task}</b> <span class="hist-detail">(Day ${h.day}): ${h.detail}</span>`;
+  }
+  if (h.action.startsWith('day_blocker')) {
+    return `<b class="hist-actor">${h.actor_label}</b> ${HIST_VERB[h.action]} ${h.day} — ${dayTitle}<span class="hist-detail">: ${h.detail}</span>`;
+  }
+  if (h.action.startsWith('task_blocker')) {
+    return `<b class="hist-actor">${h.actor_label}</b> ${HIST_VERB[h.action]} <b>${h.member} — ${h.task}</b> <span class="hist-detail">(Day ${h.day}): ${h.detail}</span>`;
+  }
+  return `<b class="hist-actor">${h.actor_label}</b> ${h.action}`;
+}
+function renderHistoryPanel() {
+  const wrap = document.getElementById('historyPanelWrap');
+  if (!showHistoryPanel) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const dayOptions = [`<option value="all">All days</option>`]
+    .concat(DAYS.map(d => `<option value="${d.d}" ${historyDayFilter==String(d.d)?'selected':''}>Day ${d.d} — ${d.title}</option>`));
+  wrap.innerHTML = `<div class="hist-panel">
+    <div class="hist-hd">
+      <div class="hist-title">🕓 Change history</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <select class="hist-filter" onchange="changeHistoryDayFilter(this.value)">${dayOptions.join('')}</select>
+        <button class="tb-btn" onclick="toggleHistoryPanel()">Close</button>
+      </div>
+    </div>
+    <div class="hist-list">${historyCache.length ? historyCache.map(h => `
+      <div class="hist-item">
+        <div class="hist-icon">${HIST_ICON[h.action]||'•'}</div>
+        <div class="hist-body">
+          <div>${histLine(h)}</div>
+          <div class="hist-meta">${new Date(h.ts).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>`).join('') : `<div class="hist-empty">No changes logged yet.</div>`}
     </div>
   </div>`;
 }
@@ -711,8 +930,8 @@ function renderDay(day) {
                     <div class="tbi-row">
                       <span class="tbi-desc${b.resolved?' st':''}">${b.desc} <span class="sev-pill sev-${b.sev}" style="margin-left:4px">${b.sev}</span>${b.resolved?'<span class="res-pill" style="margin-left:4px">Resolved</span>':''}</span>
                       ${canEdit?`<span class="blk-actions">
-                        <button class="blk-btn res" onclick="resolveTaskBlocker(${day.d},'${m}','${safeT}',${b.id})">${b.resolved?'Reopen':'Resolve'}</button>
-                        <button class="blk-btn del" onclick="deleteTaskBlocker(${day.d},'${m}','${safeT}',${b.id})">✕</button>
+                        <button class="blk-btn res" onclick="resolveTaskBlocker(${day.d},'${m}','${safeT}','${b.id}')">${b.resolved?'Reopen':'Resolve'}</button>
+                        <button class="blk-btn del" onclick="deleteTaskBlocker(${day.d},'${m}','${safeT}','${b.id}')">✕</button>
                       </span>`:''}
                     </div>
                   </div>`).join('')}
@@ -766,8 +985,8 @@ function renderDay(day) {
               </div>
             </div>
             ${canManageDayBlockers?`<div class="blk-actions">
-              <button class="blk-btn res" onclick="resolveBlocker(${day.d},${b.id})">${b.resolved?'Reopen':'Resolve'}</button>
-              <button class="blk-btn del" onclick="deleteBlocker(${day.d},${b.id})">✕</button>
+              <button class="blk-btn res" onclick="resolveBlocker(${day.d},'${b.id}')">${b.resolved?'Reopen':'Resolve'}</button>
+              <button class="blk-btn del" onclick="deleteBlocker(${day.d},'${b.id}')">✕</button>
             </div>`:''}
           </div>
         </div>`).join('') : `<div class="blk-empty">No blockers on this day</div>`}
@@ -824,13 +1043,13 @@ function exportProgress() {
 function render() {
   renderStats();
   renderBlockerPanel();
+  renderHistoryPanel();
   renderWeekTabs();
   renderDays();
 }
 
 /* ---------- BOOT ---------- */
 buildRoleGrid();
-loadState();
 </script>
 </body>
 </html>
