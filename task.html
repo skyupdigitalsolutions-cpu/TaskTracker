@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transport ERP — Project Tracker</title>
+<style>
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface-2: #f9f8f6;
+    --border: rgba(0,0,0,0.09);
+    --border-strong: rgba(0,0,0,0.15);
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --text-3: #898781;
+    --accent: #2a78d6;
+    --accent-bg: #e6f1fb;
+    --accent-text: #0c447c;
+    --success: #1baf7a;
+    --success-bg: #eaf3de;
+    --success-text: #27500A;
+    --danger: #e24b4a;
+    --danger-bg: #fcebeb;
+    --danger-text: #a32d2d;
+    --warning-bg: #faeeda;
+    --warning-text: #633806;
+    --radius: 8px;
+    --m1: #2a78d6; --m2: #1baf7a; --m3: #eb6834; --m4: #4a3aa7; --m5: #eda100;
+    --w1: #0C447C; --w1bg: #E6F1FB;
+    --w2: #27500A; --w2bg: #EAF3DE;
+    --w3: #633806; --w3bg: #FAEEDA;
+    --w4: #712B13; --w4bg: #FAECE7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a19; --surface: #242422; --surface-2: #2c2c2a;
+      --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+      --text: #f0efec; --text-2: #c3c2b7; --text-3: #898781;
+      --accent-bg: #0c447c; --accent-text: #b5d4f4;
+      --success-bg: #085041; --success-text: #9FE1CB;
+      --danger-bg: #501313; --danger-text: #F7C1C1;
+      --warning-bg: #412402; --warning-text: #FAC775;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+  /* LOGIN */
+  #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .login-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 16px; padding: 2.5rem 2rem; width: 100%; max-width: 420px; }
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
+  .login-logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 16px; }
+  .login-logo-name { font-size: 16px; font-weight: 600; }
+  .login-logo-sub { font-size: 12px; color: var(--text-3); }
+  .login-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .login-sub { font-size: 13px; color: var(--text-2); margin-bottom: 1.75rem; }
+  .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem; }
+  .role-card { border: 1.5px solid var(--border-strong); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: all .15s; background: var(--surface-2); }
+  .role-card:hover { border-color: var(--accent); background: var(--accent-bg); }
+  .role-card.selected { border-color: var(--accent); background: var(--accent-bg); }
+  .role-card .rc-dot { width: 10px; height: 10px; border-radius: 50%; margin-bottom: 8px; }
+  .role-card .rc-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .role-card .rc-desc { font-size: 11px; color: var(--text-3); }
+  .admin-card { grid-column: 1 / -1; }
+  .login-btn { width: 100%; padding: 10px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+  .login-btn:hover { opacity: .9; }
+  .login-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .login-pass-wrap { display: none; margin-bottom: 1rem; }
+  .login-pass-wrap.show { display: block; }
+  .login-pass-lbl { font-size: 12px; color: var(--text-2); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+  .login-pass-lbl .chip { font-size: 11px; padding: 2px 8px; border-radius: 100px; font-weight: 600; }
+  .login-pass-input { width: 100%; padding: 10px 12px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface-2); color: var(--text); font-size: 14px; margin-bottom: 6px; }
+  .login-pass-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+  .login-err { font-size: 12px; color: var(--danger-text); min-height: 16px; }
+  .login-back { font-size: 12px; color: var(--text-3); background: none; border: none; cursor: pointer; padding: 0; margin-top: 4px; text-decoration: underline; }
+
+  /* APP SHELL */
+  #appScreen { display: none; min-height: 100vh; flex-direction: column; }
+  .topbar { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; gap: 12px; height: 54px; position: sticky; top: 0; z-index: 100; }
+  .tb-logo { font-size: 15px; font-weight: 600; flex: 1; }
+  .tb-logo span { color: var(--accent); }
+  .tb-role-badge { font-size: 12px; padding: 4px 10px; border-radius: 100px; font-weight: 500; }
+  .tb-btn { padding: 6px 12px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: transparent; cursor: pointer; font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 5px; }
+  .tb-btn:hover { background: var(--surface-2); }
+  .tb-btn.danger-btn { color: var(--danger-text); border-color: var(--danger); }
+  .tb-btn.danger-btn:hover { background: var(--danger-bg); }
+
+  /* MAIN LAYOUT */
+  .app-body { padding: 1.5rem; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+  /* STATS */
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .sc-label { font-size: 11px; color: var(--text-3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .sc-val { font-size: 22px; font-weight: 600; }
+  .sc-bar { height: 4px; background: var(--bg); border-radius: 100px; margin-top: 6px; overflow: hidden; }
+  .sc-bar-f { height: 4px; border-radius: 100px; transition: width .4s; }
+
+  /* BLOCKER PANEL */
+  .blocker-panel { background: var(--surface); border: 0.5px solid var(--danger); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+  .bp-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .bp-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .bp-badge { font-size: 11px; padding: 2px 8px; border-radius: 100px; background: var(--danger-bg); color: var(--danger-text); font-weight: 600; }
+  .bp-list { display: flex; flex-direction: column; gap: 6px; }
+  .bpi { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 8px 10px; display: flex; align-items: flex-start; gap: 10px; }
+  .bpi.res { border-color: var(--success); background: var(--success-bg); }
+  .bpi-body { flex: 1; }
+  .bpi-desc { font-size: 13px; line-height: 1.4; margin-bottom: 3px; }
+  .bpi-desc.st { text-decoration: line-through; color: var(--text-3); }
+  .bpi-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sev-pill { font-size: 10px; padding: 2px 7px; border-radius: 100px; font-weight: 600; }
+  .sev-high { background: var(--danger-bg); color: var(--danger-text); }
+  .sev-med { background: var(--warning-bg); color: var(--warning-text); }
+  .sev-low { background: var(--success-bg); color: var(--success-text); }
+  .res-pill { font-size: 10px; padding: 2px 7px; border-radius: 100px; background: var(--success-bg); color: var(--success-text); font-weight: 600; }
+  .bpi-day { font-size: 10px; color: var(--text-3); white-space: nowrap; }
+  .bp-empty { font-size: 13px; color: var(--text-3); text-align: center; padding: 1rem; }
+
+  /* CONTROLS */
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .week-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .wtab { padding: 5px 13px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: transparent; cursor: pointer; font-size: 13px; color: var(--text-2); transition: all .15s; }
+  .wtab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-text); font-weight: 500; }
+  .wtab:hover:not(.active) { background: var(--surface-2); }
+  .sep { width: 1px; height: 20px; background: var(--border-strong); }
+  .filter-grp { display: flex; gap: 4px; }
+  .fbtn { padding: 4px 11px; border-radius: 100px; border: 0.5px solid var(--border); background: transparent; cursor: pointer; font-size: 12px; color: var(--text-2); }
+  .fbtn.active { background: var(--surface-2); border-color: var(--border-strong); color: var(--text); font-weight: 500; }
+  .fbtn:hover:not(.active) { background: var(--surface-2); }
+  .fbtn.f-blocked { color: var(--danger-text); }
+  .fbtn.f-blocked.active { background: var(--danger-bg); border-color: var(--danger); }
+
+  /* DAY CARDS */
+  .day-grid { display: flex; flex-direction: column; gap: 8px; }
+  .day-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color .15s; }
+  .day-card.has-blocker { border-color: var(--danger); }
+  .day-card.no-access { opacity: .5; pointer-events: none; }
+  .day-hd { display: flex; align-items: center; gap: 8px; padding: 11px 16px; cursor: pointer; user-select: none; }
+  .day-hd:hover { background: var(--surface-2); }
+  .day-num { font-size: 11px; color: var(--text-3); min-width: 42px; font-variant-numeric: tabular-nums; }
+  .day-title { font-weight: 500; font-size: 14px; flex: 1; }
+  .day-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .day-bar { width: 72px; height: 4px; background: var(--bg); border-radius: 100px; overflow: hidden; }
+  .day-bar-f { height: 4px; border-radius: 100px; transition: width .3s; }
+  .day-prog { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .blk-pill { font-size: 10px; padding: 2px 7px; border-radius: 100px; background: var(--danger-bg); color: var(--danger-text); font-weight: 600; }
+  .wk-pill { font-size: 10px; padding: 2px 7px; border-radius: 100px; font-weight: 600; }
+  .chev { font-size: 16px; color: var(--text-3); transition: transform .2s; display: inline-block; }
+  .chev.open { transform: rotate(180deg); }
+
+  /* DAY BODY */
+  .day-body { display: none; border-top: 0.5px solid var(--border); padding: 0 16px 16px; }
+  .day-body.open { display: block; }
+  .inner-tabs { display: flex; border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 12px 0; width: fit-content; }
+  .itab { padding: 6px 14px; font-size: 12px; cursor: pointer; border: none; background: transparent; color: var(--text-2); white-space: nowrap; }
+  .itab.active { background: var(--surface-2); color: var(--text); font-weight: 500; }
+  .itab.has-blocker { color: var(--danger-text); }
+
+  /* MEMBER COLUMNS */
+  .member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .mcol { background: var(--surface-2); border-radius: var(--radius); padding: 10px 12px; }
+  .mcol.my-col { border: 1.5px solid var(--accent); }
+  .ml { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .ml-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ml-you { font-size: 9px; padding: 1px 5px; border-radius: 100px; background: var(--accent-bg); color: var(--accent-text); font-weight: 600; }
+  .tlist { display: flex; flex-direction: column; gap: 3px; }
+  .ti { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; padding: 2px 0; border-radius: 4px; }
+  .ti.clickable { cursor: pointer; }
+  .ti.clickable:hover { opacity: .8; }
+  .tcb { width: 14px; height: 14px; border-radius: 3px; border: 0.5px solid var(--border-strong); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+  .tcb.done { background: var(--success); border-color: var(--success); }
+  .tcb.done::after { content: '✓'; font-size: 9px; color: #fff; font-weight: 700; }
+  .tcb.ro { background: var(--surface-2); cursor: default; }
+  .ttxt { line-height: 1.4; color: var(--text-2); }
+  .ti.is-done .ttxt { text-decoration: line-through; color: var(--text-3); }
+  .ro-txt { font-size: 10px; color: var(--text-3); font-style: italic; margin-top: 4px; }
+
+  /* PER-TASK PROGRESS + BLOCKERS */
+  .ti-wrap { padding: 7px 0; border-bottom: 0.5px solid var(--border); }
+  .ti-wrap:last-child { border-bottom: none; }
+  .ti-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 5px; }
+  .ti-txt { font-size: 12px; color: var(--text-2); line-height: 1.4; }
+  .ti-txt.done { color: var(--text-3); text-decoration: line-through; }
+  .ti-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .ti-bar { flex: 1; height: 5px; background: var(--bg); border-radius: 100px; overflow: hidden; }
+  .ti-bar-f { height: 5px; border-radius: 100px; transition: width .25s; }
+  .ti-pct { font-size: 10px; color: var(--text-3); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ti-status { font-size: 10px; color: var(--text-3); margin-bottom: 5px; }
+  .ti-controls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 3px; }
+  .ti-pbtn { font-size: 10px; padding: 2px 7px; border-radius: 100px; border: 0.5px solid var(--border-strong); background: transparent; cursor: pointer; color: var(--text-2); }
+  .ti-pbtn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .ti-pbtn:hover:not(.active) { background: var(--surface-2); }
+  .ti-blk-btn { font-size: 10px; padding: 2px 8px; border-radius: 100px; border: 0.5px solid var(--danger); color: var(--danger-text); background: transparent; cursor: pointer; margin-left: auto; white-space: nowrap; }
+  .ti-blk-btn:hover { background: var(--danger-bg); }
+  .ti-blk-badge { font-size: 9px; padding: 1px 6px; border-radius: 100px; background: var(--danger-bg); color: var(--danger-text); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  .ti-blk-form { background: var(--danger-bg); border: 0.5px solid var(--danger); border-radius: 6px; padding: 7px; margin: 4px 0; }
+  .ti-blk-form .bf-row { margin-bottom: 5px; }
+  .ti-blk-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .ti-blk-item { background: var(--surface); border: 0.5px solid var(--danger); border-radius: 6px; padding: 5px 8px; font-size: 11px; }
+  .ti-blk-item.resolved { border-color: var(--success); background: var(--success-bg); }
+  .tbi-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .tbi-desc.st { text-decoration: line-through; color: var(--text-3); }
+
+  /* GATE */
+  .gate { margin-top: 12px; background: var(--success-bg); border: 0.5px solid; border-color: #9FE1CB; border-radius: var(--radius); padding: 8px 10px; }
+  .gate-lbl { font-size: 11px; font-weight: 600; color: var(--success-text); margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+  .gate-items { display: flex; flex-wrap: wrap; gap: 3px; }
+  .gi { font-size: 11px; color: var(--success-text); }
+  .gi::before { content: '■ '; }
+
+  /* BLOCKERS SECTION */
+  .blockers-sec { margin-top: 4px; }
+  .bsec-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .bsec-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .add-blk-btn { font-size: 12px; padding: 4px 10px; border-radius: var(--radius); border: 0.5px solid var(--danger); color: var(--danger-text); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .add-blk-btn:hover { background: var(--danger-bg); }
+  .blk-form { background: var(--danger-bg); border: 0.5px solid var(--danger); border-radius: var(--radius); padding: 10px; margin-bottom: 10px; }
+  .bf-row { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .bf-inp { flex: 1; min-width: 120px; font-size: 12px; padding: 6px 8px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); }
+  .bf-sel { font-size: 12px; padding: 6px 8px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); }
+  .bf-btns { display: flex; gap: 6px; }
+  .bf-save { font-size: 12px; padding: 5px 14px; border-radius: var(--radius); border: none; background: var(--danger); color: #fff; cursor: pointer; font-weight: 500; }
+  .bf-cancel { font-size: 12px; padding: 5px 10px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: transparent; color: var(--text-2); cursor: pointer; }
+  .bf-err { font-size: 11px; color: var(--danger-text); margin-top: 4px; min-height: 14px; }
+  .blk-list { display: flex; flex-direction: column; gap: 6px; }
+  .blk-item { background: var(--surface-2); border: 0.5px solid var(--danger); border-radius: var(--radius); padding: 8px 10px; }
+  .blk-item.resolved { border-color: var(--success); background: var(--success-bg); }
+  .blk-top { display: flex; align-items: flex-start; gap: 8px; }
+  .blk-body { flex: 1; }
+  .blk-desc { font-size: 13px; line-height: 1.4; margin-bottom: 4px; }
+  .blk-desc.st { text-decoration: line-through; color: var(--text-3); }
+  .blk-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .blk-owner { font-size: 11px; color: var(--text-2); }
+  .blk-date { font-size: 10px; color: var(--text-3); }
+  .blk-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+  .blk-btn { font-size: 11px; padding: 3px 8px; border-radius: var(--radius); border: 0.5px solid var(--border); background: transparent; cursor: pointer; color: var(--text-2); }
+  .blk-btn:hover { background: var(--surface); }
+  .blk-btn.res { color: var(--success-text); border-color: var(--success); }
+  .blk-btn.res:hover { background: var(--success-bg); }
+  .blk-btn.del { color: var(--danger-text); }
+  .blk-empty { font-size: 12px; color: var(--text-3); padding: 10px; text-align: center; border: 0.5px dashed var(--border-strong); border-radius: var(--radius); }
+
+  /* FOOTER */
+  .footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text-3); }
+
+  /* READONLY NOTICE */
+  .ro-notice { font-size: 12px; background: var(--warning-bg); color: var(--warning-text); padding: 6px 12px; border-radius: var(--radius); margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .app-body { padding: 1rem; }
+    .day-meta { gap: 5px; }
+    .day-bar { width: 50px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">SE</div>
+      <div>
+        <div class="login-logo-name">SkyUp Digital</div>
+        <div class="login-logo-sub">Transport ERP Tracker</div>
+      </div>
+    </div>
+    <div class="login-title">Select your role</div>
+    <div class="login-sub">Choose your team role to view and manage your assigned tasks.</div>
+    <div class="role-grid" id="roleGrid"></div>
+    <div class="login-pass-wrap" id="loginPassWrap">
+      <div class="login-pass-lbl">
+        <span>Enter password for <b id="loginPassRole"></b></span>
+        <button class="login-back" onclick="clearRoleSelection()">Change role</button>
+      </div>
+      <input type="password" class="login-pass-input" id="loginPassInput" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()" oninput="document.getElementById('loginErr').textContent=''">
+      <div class="login-err" id="loginErr"></div>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()" disabled>Continue</button>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen">
+  <div class="topbar">
+    <div class="tb-logo">Transport <span>ERP</span> Tracker</div>
+    <span class="tb-role-badge" id="topRoleBadge"></span>
+    <button class="tb-btn" id="bpToggleBtn" onclick="toggleBlockerPanel()">⚠ All blockers</button>
+    <button class="tb-btn" onclick="exportProgress()">↓ Export CSV</button>
+    <button class="tb-btn danger-btn" onclick="logout()">Switch role</button>
+  </div>
+  <div class="app-body">
+    <div id="roNotice"></div>
+    <div class="stats-row" id="statsRow"></div>
+    <div id="blockerPanelWrap" style="display:none"></div>
+    <div class="controls">
+      <div class="week-tabs" id="weekTabs"></div>
+      <div class="sep"></div>
+      <div class="filter-grp">
+        <button class="fbtn active" onclick="setFilter('all',this)">All</button>
+        <button class="fbtn" onclick="setFilter('incomplete',this)">Incomplete</button>
+        <button class="fbtn" onclick="setFilter('complete',this)">Done</button>
+        <button class="fbtn f-blocked" onclick="setFilter('blocked',this)">⚠ Blocked</button>
+      </div>
+    </div>
+    <div class="day-grid" id="dayGrid"></div>
+  </div>
+  <div class="footer">SkyUp Digital Solutions LLP · Transport ERP · 28-Day Plan · 232 Tasks</div>
+</div>
+
+<script>
+const ROLES = [
+  { id:'admin', label:'Project Manager', desc:'View-only access to all tasks, progress and blockers', color:'#2a78d6', members:['M1','M2','M3','M4','M5','ALL'], canEdit:[], admin:true, viewOnly:true, password:'admin@2026' },
+  { id:'M1', label:'M1 — Web Developer', desc:'Admin Portal & Customer Website', color:'#2a78d6', members:['M1'], canEdit:['M1'], password:'m1@2026' },
+  { id:'M2', label:'M2 — Mobile Developer', desc:'Customer App & Driver App', color:'#1baf7a', members:['M2'], canEdit:['M2'], password:'m2@2026' },
+  { id:'M3', label:'M3 — Backend Engineer', desc:'Core backend, auth, booking, payments', color:'#eb6834', members:['M3'], canEdit:['M3'], password:'m3@2026' },
+  { id:'M4', label:'M4 — DevOps / Backend', desc:'Dispatch, GPS, Redis, WebSocket, infra', color:'#4a3aa7', members:['M4'], canEdit:['M4'], password:'m4@2026' },
+  { id:'M5', label:'M5 — Integrations', desc:'Payment, Maps, WhatsApp, SMS, Email, Push', color:'#eda100', members:['M5'], canEdit:['M5'], password:'m5@2026' },
+];
+
+const MC = { M1:'#2a78d6', M2:'#1baf7a', M3:'#eb6834', M4:'#4a3aa7', M5:'#eda100', ALL:'#888780' };
+const WBC = { 1:'#2a78d6', 2:'#1baf7a', 3:'#eb6834', 4:'#4a3aa7' };
+const WKC = { 1:{ bg:'#E6F1FB', text:'#0C447C' }, 2:{ bg:'#EAF3DE', text:'#27500A' }, 3:{ bg:'#FAEEDA', text:'#633806' }, 4:{ bg:'#FAECE7', text:'#712B13' } };
+
+const DAYS = [
+  {d:1,w:1,title:'Project Kickoff & Architecture',tasks:{M1:['Confirm Admin Portal modules','Confirm Customer Website modules','Finalize navigation structure','Setup React/Vite project','Setup Tailwind/design system','Create shared components','Create Admin layout','Create Customer Website layout'],M2:['Setup Customer App','Setup Driver App','Configure navigation','Configure common components','Configure Android/iOS environments','Setup secure storage structure','Prepare mock API service'],M3:['Finalize system architecture','Finalize database architecture','Create PostgreSQL/MySQL database','Create ER structure','Setup backend project','Setup API versioning','Setup authentication architecture','Prepare API contracts'],M4:['Setup Git repositories','Setup branching strategy','Setup development environment','Setup staging environment','Setup Redis','Setup WebSocket architecture','Setup background worker architecture','Setup CI/CD'],M5:['Identify all external providers','Payment provider account','Maps API account','WhatsApp Business setup','SMS provider setup','Email provider setup','Firebase project','iOS/APNs requirements','Collect API credentials']},gate:['Architecture approved','Repositories ready','Dev environments ready','Redis ready','API standards finalized','UI projects running','Mobile projects running']},
+  {d:2,w:1,title:'Database + Authentication',tasks:{M1:['Admin login screen','Customer login screen','OTP UI','Permission-based navigation','Dashboard shell'],M2:['Customer login','Customer OTP','Driver login','Driver OTP','Token storage','Session handling'],M3:['Users table','Roles table','Permissions','Role permissions','Customer tables','Address tables','Registration API','Login API','OTP API','JWT','Refresh token','Logout','RBAC'],M4:['Redis session structure','Redis availability structure','Rate-limit infrastructure','Logging','Health checks'],M5:['Verify external credentials','Payment sandbox','Maps sandbox','WhatsApp sandbox/test','SMS test','Email test','Firebase test']},gate:['All users can authenticate','RBAC working','Web login connected','Mobile login connected','API authentication tested']},
+  {d:3,w:1,title:'Customer + Fleet',tasks:{M1:['Customer list','Customer search','Customer filter','Add customer','Edit customer','Customer details','Customer profile','Address management'],M2:['Customer profile','Customer addresses','Customer booking-history screen','Driver profile','Driver documents','Driver vehicle details','Driver availability'],M3:['Customer CRUD','Address APIs','Corporate customer API','Driver CRUD','Driver documents','Driver status','Vehicle CRUD','Vehicle types','Vehicle documents','Vehicle status'],M4:['Driver availability service','Vehicle availability service','Redis availability cache'],M5:['File/document storage integration','External-service validation']},gate:['Customer management working','Driver management working','Vehicle management working','Documents upload working']},
+  {d:4,w:1,title:'Booking Engine',tasks:{M1:['Admin booking list','Booking filters','Booking details','Create booking','Edit booking','Cancel booking','Customer web booking form'],M2:['Customer app booking screen','Pickup selection','Destination selection','Vehicle selection','Booking confirmation','Booking history'],M3:['Booking model','Create booking API','Update booking','Booking status','Cancellation API','Cancellation rules','Booking history','Booking filters'],M4:['Booking events','Queue foundation','Booking event logging'],M5:['Maps API connection','Geocoding','Route testing','Distance calculation']},gate:['Booking created from web','Booking created from mobile','Admin can manage booking','Cancellation works']},
+  {d:5,w:1,title:'Fare Engine + Maps',tasks:{M1:['Fare configuration UI','Fare display','Fare breakdown','Booking summary'],M2:['Fare display','Fare breakdown','Booking summary'],M3:['Base fare','Distance fare','Time fare','Tax','Discount','Additional charges','Final fare API'],M4:['Route-related caching','Fare calculation performance checks'],M5:['Maps routing','Distance API','Geocoding','Map error handling']},gate:['Distance calculated','Fare calculated','Tax applied','Final amount displayed']},
+  {d:6,w:1,title:'Dispatch + Assignment',tasks:{M1:['Dispatch board','Available driver list','Manual assignment','Reassignment UI'],M2:['Driver trip-request screen','Accept assignment','Reject assignment','Assignment status'],M3:['Booking-to-dispatch integration','Assignment data APIs'],M4:['Driver availability query','Vehicle availability query','Nearest-driver algorithm','Driver assignment','Vehicle assignment','Timeout','Reassignment','Accept/reject APIs','Dispatch board API'],M5:['Push notification preparation','Driver assignment notification']},gate:['Booking reaches dispatch','Driver automatically assigned','Manual reassignment works','Driver receives assignment']},
+  {d:7,w:1,title:'Week 1 Integration + QA',tasks:{ALL:['Authentication integration','Customer integration','Fleet integration','Booking integration','Fare integration','Dispatch integration','API testing','UI testing','Mobile testing','Bug fixing','Regression testing','Staging deployment','Week 1 review']},gate:['Core foundation, customer, fleet, booking, fare and dispatch functional']},
+  {d:8,w:2,title:'Trip Management',tasks:{M1:['Trip details','Trip status','Admin trip view'],M2:['Driver trip screen','Start trip','End trip','Trip status'],M3:['Trip-related supporting APIs','Trip records'],M4:['Trip creation','Trip lifecycle','Trip status','Trip history','Status history'],M5:['Trip-related map validation']},gate:['Assignment creates trip','Driver can start trip','Driver can end trip','Trip status updates correctly']},
+  {d:9,w:2,title:'GPS + WebSocket',tasks:{M1:['Admin live tracking map','Customer live tracking map'],M2:['Driver GPS permission','GPS sharing','Driver navigation','Location update'],M3:['GPS supporting APIs','Authorization validation'],M4:['GPS update API','Location processing','Redis location cache','WebSocket authentication','Booking events','Trip events','Location events'],M5:['Maps integration validation']},gate:['Driver location captured','Redis location updated','WebSocket sends location','Customer sees live location']},
+  {d:10,w:2,title:'Payment',tasks:{M1:['Customer web payment UI','Payment status','Transaction history','Admin transaction screen'],M2:['Mobile payment','Payment success','Payment failure','Payment history'],M3:['Payment create API','Verify API','Callback','Refund','Transaction records','Webhook processor'],M4:['Payment retry queue','Failed transaction queue','Reconciliation worker'],M5:['Payment provider sandbox','Webhook verification','Test transactions']},gate:['Payment created','Payment verified','Failed payment handled','Refund tested']},
+  {d:11,w:2,title:'Invoice',tasks:{M1:['Admin invoice management','Customer invoice page','Invoice download'],M2:['Mobile invoice view','Mobile invoice download'],M3:['Invoice generation','Invoice numbering','Tax calculation','PDF generation','Invoice storage'],M4:['Invoice background worker','Invoice queue','Retry mechanism'],M5:['Email invoice integration','WhatsApp invoice integration']},gate:['Invoice automatically generated','Invoice PDF created','Invoice stored','Customer can view/download invoice']},
+  {d:12,w:2,title:'WhatsApp + SMS',tasks:{M1:['WhatsApp settings UI','Template UI','Message status UI'],M2:['Mobile notification handling'],M3:['WhatsApp send API','Message logs','Delivery status','SMS integration'],M4:['WhatsApp queue','Retry','SMS queue','Retry'],M5:['WhatsApp account','Template approval','Webhook','SMS provider','Sender ID','SMS templates']},gate:['Booking WhatsApp','Booking SMS','Driver notification','Invoice WhatsApp','Delivery status logging']},
+  {d:13,w:2,title:'Email + Push Notifications',tasks:{M1:['Email status UI','Notification UI'],M2:['FCM permission','APNs permission','Notification handlers','Deep links'],M3:['Email service','Templates','Delivery/bounce handling'],M4:['Push backend','Notification events','Deep linking'],M5:['Email provider','Domain verification','Firebase','APNs certificates']},gate:['Email confirmation','Invoice email','Booking push','Driver assignment push','Trip push']},
+  {d:14,w:2,title:'Week 2 Full Integration',tasks:{ALL:['Booking to Payment','Payment to Confirmation','Booking to Dispatch','Dispatch to Driver','Driver to Trip','Trip to GPS','Trip to Invoice','Invoice to Email','Invoice to WhatsApp','Push notifications','SMS','API testing','Mobile testing','Regression testing','Staging deployment']},gate:['Complete operational transport lifecycle functional']},
+  {d:15,w:3,title:'Reports Backend',tasks:{M4:['Booking reports','Trip reports','Revenue reports','Payment reports','Driver performance','Cancellation reports','Scheduled reports','CSV export','Excel export','PDF export'],M1:['Reports page','Charts','Filters','Date range','Export UI']},gate:['All major reports available','Filters working','Export working']},
+  {d:16,w:3,title:'Admin Dashboard',tasks:{M1:['KPI dashboard','Booking statistics','Revenue statistics','Driver statistics','Cancellation statistics','Trip statistics','Charts','Filters'],M4:['Dashboard aggregation APIs','Performance optimization'],M3:['Data validation','Permission validation']},gate:['Dashboard reflects real data','KPI calculations verified']},
+  {d:17,w:3,title:'Support + SOS',tasks:{M1:['Support tickets','Ticket list','Ticket details','Ticket status','Customer support form'],M2:['Customer SOS','Driver SOS','Support screen','Emergency workflow'],M3:['Support CRUD','Ticket assignment','Ticket status','SOS API','Emergency notifications','SOS location'],M4:['Emergency event processing','Notification queue']},gate:['Support ticket creation','SOS trigger','Location sharing','Admin notification']},
+  {d:18,w:3,title:'Security Hardening',tasks:{M1:['Permission UI audit','Role-based navigation audit','Unauthorized screen testing'],M2:['Secure storage review','Token security review','Permission review'],M3:['RBAC audit','API validation','Token lifecycle','Token blacklist','Webhook signature validation','Database security review','IDOR testing','Authentication bypass testing'],M4:['Redis security','WebSocket authentication','Rate limiting','Performance security'],M5:['Credential security','Provider access review']},gate:['Auth security passed','RBAC passed','API validation passed','WebSocket auth passed']},
+  {d:19,w:3,title:'Full API Testing',tasks:{M3:['Authentication APIs','Customer APIs','Fleet APIs','Booking APIs','Fare APIs','Dispatch APIs','Trip APIs','GPS APIs','Payment APIs','Invoice APIs','Notification APIs','Report APIs','Support APIs','Negative testing','Boundary testing','Authorization testing'],M4:['Authentication APIs','Customer APIs','Trip APIs','GPS APIs','Payment APIs','Invoice APIs','Notification APIs','Report APIs','Negative testing','Boundary testing','Authorization testing']},gate:['API collection complete','Critical API bugs fixed','API regression passed']},
+  {d:20,w:3,title:'Web + Mobile Testing',tasks:{M1:['Admin functional testing','Customer website testing','Responsive testing','Validation testing','Error-state testing','Browser testing'],M2:['Customer Android testing','Customer iOS testing','Driver Android testing','Driver iOS testing','GPS testing','Permission testing','Offline testing','Notification testing']},gate:['Critical UI bugs fixed','Critical mobile bugs fixed','Web regression passed']},
+  {d:21,w:3,title:'End-to-End Integration',tasks:{ALL:['Customer registration','Customer login','Booking','Fare calculation','Payment','Notification','Dispatch','Driver assignment','Driver acceptance','GPS','Live tracking','Trip start','Trip end','Invoice','Driver earnings','Reports','Support','SOS']},gate:['All modules developed, integrated and undergoing full QA']},
+  {d:22,w:4,title:'Full Regression Testing',tasks:{ALL:['Authentication regression','Customer regression','Fleet regression','Booking regression','Fare regression','Dispatch regression','GPS regression','Payment regression','Invoice regression','WhatsApp regression','SMS regression','Email regression','Push regression','Reports regression','Support regression','SOS regression']},gate:['Full regression cycle closed across all modules']},
+  {d:23,w:4,title:'Performance Testing',tasks:{M4:['API load testing','Database load testing','Concurrent booking testing','Redis performance testing','WebSocket concurrent connections','GPS event load','Queue performance','Background worker performance'],M3:['Database indexes','Slow query analysis','API response optimization','Connection pool validation'],M1:['Web performance','Image optimization','API request optimization'],M2:['Mobile performance','Image optimization','API request optimization']},gate:['System validated under load; bottlenecks resolved']},
+  {d:24,w:4,title:'Staging Deployment',tasks:{M4:['Deploy backend','Deploy web applications','Configure Redis','Configure WebSocket','Configure workers','Configure monitoring'],M3:['Staging DB migration','Seed test data','Validate database','Validate API environment'],M5:['Configure sandbox payment','Configure Maps','Configure WhatsApp','Configure SMS','Configure Email','Configure Push'],ALL:['Smoke testing','Critical workflow testing','API health check','WebSocket health check','Notification testing']},gate:['Full stack live on staging with sandbox integrations validated']},
+  {d:25,w:4,title:'UAT Day 1 — Business Workflow',tasks:{ALL:['Customer registration UAT','Customer booking UAT','Fare calculation UAT','Booking confirmation UAT','Payment UAT','Dispatch UAT','Driver assignment UAT','Driver acceptance UAT','GPS UAT','Live tracking UAT','Record issues','Classify severity','Fix critical bugs','Retest fixes']},gate:['Day 1 workflows walked through; issues logged and triaged']},
+  {d:26,w:4,title:'UAT Day 2 + Bug Closure',tasks:{ALL:['Trip completion UAT','Invoice generation UAT','Invoice download UAT','Email delivery UAT','WhatsApp delivery UAT','SMS delivery UAT','Push notifications UAT','Reports UAT','Dashboard UAT','Support UAT','SOS UAT','Driver earnings UAT']},gate:['Critical bugs = 0','UAT issues closed','Stakeholder approval obtained']},
+  {d:27,w:4,title:'Production Preparation',tasks:{M3:['Production DB backup strategy','Production migration','Database indexes','Environment variables','Security verification'],M4:['Production server','Redis','WebSocket','Workers','Monitoring','Logging','Alerts','DNS','SSL','Rollback plan'],M5:['Production payment credentials','Production Maps','WhatsApp','SMS','Email','FCM','APNs'],M1:['Production API URL','Final web build'],M2:['App configuration','Mobile release builds']},gate:['Production environment, credentials and rollback plan fully prepared']},
+  {d:28,w:4,title:'Production Launch',tasks:{ALL:['Final database backup','Final code review','Final security check','Final environment check','Final API health check','Final integration check','Rollback plan verified','Production DB migration','Backend deployment','Web deployment','WebSocket deployment','Worker deployment','Redis configuration','DNS configuration','SSL verification','Mobile release deployment','Login smoke test','Booking smoke test','Payment smoke test','GPS smoke test','Invoice smoke test','Monitoring active','Error alerts active','Backup verified','Handover completed','Client sign-off']},gate:['Transport ERP Platform LIVE']},
+];
+
+let currentRole = null;
+let state = {};
+let activeWeek = 0;
+let activeFilter = 'all';
+let showBlockerPanel = false;
+let addingBlocker = {};
+let addingTaskBlocker = {};
+let dayInnerTab = {};
+
+/* ---------- STORAGE ---------- */
+function loadState() {
+  try { const s = localStorage.getItem('erp_tracker_v4'); if (s) state = JSON.parse(s); } catch(e){}
+}
+function saveState() {
+  try { localStorage.setItem('erp_tracker_v4', JSON.stringify(state)); } catch(e){}
+}
+
+/* ---------- KEYS ---------- */
+function tkey(d,m,t){ return 'd'+d+'_'+m+'_'+t.replace(/[^a-zA-Z0-9]/g,'_'); }
+function bkey(d){ return 'blockers_d'+d; }
+function tbkey(d,m,t){ return 'tblk_'+tkey(d,m,t); }
+
+/* ---------- ROLE SETUP ---------- */
+function buildRoleGrid() {
+  const g = document.getElementById('roleGrid');
+  g.innerHTML = ROLES.map(r => {
+    const isAdmin = r.admin;
+    return `<div class="role-card${isAdmin?' admin-card':''}" id="rc_${r.id}" onclick="selectRole('${r.id}')">
+      <div class="rc-dot" style="background:${r.color}"></div>
+      <div class="rc-name">${r.label}</div>
+      <div class="rc-desc">${r.desc}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectRole(id) {
+  currentRole = ROLES.find(r => r.id === id);
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('rc_'+id).classList.add('selected');
+  const passWrap = document.getElementById('loginPassWrap');
+  passWrap.classList.add('show');
+  document.getElementById('loginPassRole').textContent = currentRole.label;
+  document.getElementById('loginPassRole').style.color = currentRole.color;
+  const passInput = document.getElementById('loginPassInput');
+  passInput.value = '';
+  document.getElementById('loginErr').textContent = '';
+  passInput.focus();
+  document.getElementById('loginBtn').disabled = false;
+}
+
+function clearRoleSelection() {
+  currentRole = null;
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('loginPassWrap').classList.remove('show');
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginBtn').disabled = true;
+}
+
+function doLogin() {
+  if (!currentRole) return;
+  const passInput = document.getElementById('loginPassInput');
+  const err = document.getElementById('loginErr');
+  if (passInput.value !== currentRole.password) {
+    err.textContent = 'Incorrect password. Try again.';
+    passInput.value = '';
+    passInput.focus();
+    return;
+  }
+  err.textContent = '';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'flex';
+  const badge = document.getElementById('topRoleBadge');
+  badge.textContent = currentRole.label;
+  badge.style.background = currentRole.color + '20';
+  badge.style.color = currentRole.color;
+  badge.style.border = '0.5px solid ' + currentRole.color + '40';
+  if (currentRole.viewOnly) {
+    document.getElementById('roNotice').innerHTML = `<div class="ro-notice">👁 View-only access — you can see every member's tasks, progress and blockers, but cannot edit them.</div>`;
+  } else if (!currentRole.admin) {
+    document.getElementById('roNotice').innerHTML = `<div class="ro-notice">👁 You can view all tasks but can only check off your own (${currentRole.members.join(', ')}) tasks.</div>`;
+  }
+  render();
+}
+
+function logout() {
+  currentRole = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('loginPassWrap').classList.remove('show');
+  document.getElementById('loginPassInput').value = '';
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginBtn').disabled = true;
+}
+
+/* ---------- PROGRESS (per-task %) ---------- */
+function getTaskProgress(d,m,t){ return state[tkey(d,m,t)] || 0; }
+function setTaskProgress(d,m,t,val) {
+  if (!currentRole) return;
+  if (!currentRole.canEdit.includes(m)) return;
+  state[tkey(d,m,t)] = val;
+  saveState();
+  render();
+}
+function dayProgress(day) {
+  let total=0, sum=0, done=0;
+  Object.entries(day.tasks).forEach(([m,tasks]) => {
+    tasks.forEach(t => { total++; const v=getTaskProgress(day.d,m,t); sum+=v; if(v>=100) done++; });
+  });
+  return { total, done, sum, pct: total ? Math.round(sum/total) : 0 };
+}
+function weekProgress(w) {
+  let total=0, sum=0;
+  DAYS.filter(d=>d.w===w).forEach(d=>{ const p=dayProgress(d); total+=p.total; sum+=p.sum; });
+  return { total, pct: total ? Math.round(sum/total) : 0 };
+}
+function totalProgress() {
+  let total=0, sum=0;
+  DAYS.forEach(d=>{ const p=dayProgress(d); total+=p.total; sum+=p.sum; });
+  return { total, pct: total ? Math.round(sum/total) : 0 };
+}
+
+/* ---------- TASK-LEVEL BLOCKERS ---------- */
+function taskBlockers(d,m,t){ return state[tbkey(d,m,t)] || []; }
+function saveTaskBlockersArr(d,m,t,arr){ state[tbkey(d,m,t)] = arr; saveState(); }
+function allTaskBlockersFlat() {
+  let out = [];
+  DAYS.forEach(day => {
+    Object.entries(day.tasks).forEach(([m,tasks]) => {
+      tasks.forEach(t => {
+        taskBlockers(day.d,m,t).forEach(b => out.push({...b, day:day.d, dayTitle:day.title, member:m, task:t, isTask:true}));
+      });
+    });
+  });
+  return out;
+}
+function dayTaskBlockersOpenCount(day) {
+  let n = 0;
+  Object.entries(day.tasks).forEach(([m,tasks]) => {
+    tasks.forEach(t => { n += taskBlockers(day.d,m,t).filter(b=>!b.resolved).length; });
+  });
+  return n;
+}
+function startAddTaskBlocker(k){ if(!currentRole||currentRole.viewOnly) return; addingTaskBlocker[k]=true; render(); }
+function cancelAddTaskBlocker(k){ addingTaskBlocker[k]=false; render(); }
+function addTaskBlocker(d,m,t) {
+  if (!currentRole || !currentRole.canEdit.includes(m)) return;
+  const k = tkey(d,m,t);
+  const desc = document.getElementById('tbf_desc_'+k);
+  const sev = document.getElementById('tbf_sev_'+k);
+  const err = document.getElementById('tbf_err_'+k);
+  if (!desc.value.trim()) { err.textContent = 'Enter a description first'; return; }
+  err.textContent = '';
+  const arr = taskBlockers(d,m,t);
+  arr.push({ id: Date.now(), desc: desc.value.trim(), sev: sev.value,
+    date: new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}), resolved:false });
+  saveTaskBlockersArr(d,m,t,arr);
+  addingTaskBlocker[k] = false;
+  render();
+}
+function resolveTaskBlocker(d,m,t,id) {
+  if (!currentRole || !currentRole.canEdit.includes(m)) return;
+  const arr = taskBlockers(d,m,t).map(b => b.id===id ? {...b, resolved:!b.resolved} : b);
+  saveTaskBlockersArr(d,m,t,arr); render();
+}
+function deleteTaskBlocker(d,m,t,id) {
+  if (!currentRole || !currentRole.canEdit.includes(m)) return;
+  const arr = taskBlockers(d,m,t).filter(b => b.id!==id);
+  saveTaskBlockersArr(d,m,t,arr); render();
+}
+
+/* ---------- BLOCKERS ---------- */
+function getBlockers(d) { return state[bkey(d)] || []; }
+function saveBlockers(d, arr) { state[bkey(d)] = arr; saveState(); }
+function allBlockers() {
+  return DAYS.flatMap(day => getBlockers(day.d).map(b => ({...b, day:day.d, dayTitle:day.title})));
+}
+function allBlockersCombined() { return [...allBlockers(), ...allTaskBlockersFlat()]; }
+function openBlockerCount() { return allBlockersCombined().filter(b=>!b.resolved).length; }
+
+function startAdd(d){ if(!currentRole||currentRole.viewOnly) return; addingBlocker[d]=true; render(); }
+function cancelAdd(d){ addingBlocker[d]=false; render(); }
+function addBlocker(d) {
+  if (!currentRole || currentRole.viewOnly) return;
+  const desc = document.getElementById('bf_desc_'+d);
+  const owner = document.getElementById('bf_owner_'+d);
+  const sev = document.getElementById('bf_sev_'+d);
+  const err = document.getElementById('bf_err_'+d);
+  if (!desc.value.trim()) { err.textContent = 'Enter a description first'; return; }
+  err.textContent = '';
+  const arr = getBlockers(d);
+  arr.push({ id: Date.now(), desc: desc.value.trim(), owner: owner.value.trim(), sev: sev.value,
+    date: new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}), resolved:false });
+  saveBlockers(d, arr);
+  addingBlocker[d] = false;
+  render();
+}
+function resolveBlocker(d, id) {
+  if (!currentRole || currentRole.viewOnly) return;
+  const arr = getBlockers(d).map(b => b.id===id ? {...b, resolved:!b.resolved} : b);
+  saveBlockers(d, arr); render();
+}
+function deleteBlocker(d, id) {
+  if (!currentRole || currentRole.viewOnly) return;
+  const arr = getBlockers(d).filter(b => b.id!==id);
+  saveBlockers(d, arr); render();
+}
+
+/* ---------- UI CONTROLS ---------- */
+function toggleDay(d) { state['_open_'+d] = !state['_open_'+d]; saveState(); render(); }
+function setWeek(w) { activeWeek = w; render(); }
+function setInnerTab(d, tab) { dayInnerTab[d] = tab; render(); }
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+function toggleBlockerPanel() { showBlockerPanel = !showBlockerPanel; render(); }
+
+/* ---------- RENDER STATS ---------- */
+function renderStats() {
+  const tp = totalProgress();
+  const ob = openBlockerCount();
+  document.getElementById('bpToggleBtn').innerHTML = ob > 0 ? `⚠ Blockers (${ob})` : '⚠ All blockers';
+  let html = `<div class="stat-card"><div class="sc-label">Overall</div><div class="sc-val">${tp.pct}%</div><div class="sc-bar"><div class="sc-bar-f" style="width:${tp.pct}%;background:#2a78d6"></div></div></div>`;
+  [1,2,3,4].forEach(w => {
+    const wp = weekProgress(w);
+    html += `<div class="stat-card"><div class="sc-label">Week ${w}</div><div class="sc-val">${wp.pct}%</div><div class="sc-bar"><div class="sc-bar-f" style="width:${wp.pct}%;background:${WBC[w]}"></div></div></div>`;
+  });
+  document.getElementById('statsRow').innerHTML = html;
+}
+
+/* ---------- RENDER BLOCKER PANEL ---------- */
+function renderBlockerPanel() {
+  const wrap = document.getElementById('blockerPanelWrap');
+  if (!showBlockerPanel) { wrap.style.display='none'; return; }
+  wrap.style.display = 'block';
+  const all = allBlockersCombined();
+  const open = all.filter(b=>!b.resolved);
+  const resolved = all.filter(b=>b.resolved);
+  const items = [...open, ...resolved];
+  wrap.innerHTML = `<div class="blocker-panel">
+    <div class="bp-hd">
+      <div class="bp-title">⚠ All blockers <span class="bp-badge">${open.length} open</span></div>
+      <button class="tb-btn" onclick="toggleBlockerPanel()">Close</button>
+    </div>
+    <div class="bp-list">${items.length ? items.map(b=>`
+      <div class="bpi${b.resolved?' res':''}">
+        <div class="bpi-body">
+          <div class="bpi-desc${b.resolved?' st':''}">${b.desc}</div>
+          <div class="bpi-meta">
+            <span class="sev-pill sev-${b.sev}">${b.sev}</span>
+            ${b.isTask?`<span style="font-size:11px;color:var(--text-2)">${b.member} · ${b.task}</span>`:(b.owner?`<span style="font-size:11px;color:var(--text-2)">${b.owner}</span>`:'')}
+            <span class="bpi-day">Day ${b.day} — ${b.dayTitle}</span>
+            <span style="font-size:10px;color:var(--text-3)">${b.date}</span>
+            ${b.resolved?`<span class="res-pill">Resolved</span>`:''}
+          </div>
+        </div>
+      </div>`).join('') : `<div class="bp-empty">No blockers logged yet.</div>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- RENDER WEEK TABS ---------- */
+function renderWeekTabs() {
+  document.getElementById('weekTabs').innerHTML =
+    [{w:0,l:'All weeks'},{w:1,l:'Week 1'},{w:2,l:'Week 2'},{w:3,l:'Week 3'},{w:4,l:'Week 4'}]
+    .map(t=>`<button class="wtab${activeWeek===t.w?' active':''}" onclick="setWeek(${t.w})">${t.l}</button>`).join('');
+}
+
+/* ---------- RENDER DAYS ---------- */
+function renderDays() {
+  const filtered = DAYS.filter(day => {
+    if (activeWeek > 0 && day.w !== activeWeek) return false;
+    const ob = getBlockers(day.d).filter(b=>!b.resolved).length + dayTaskBlockersOpenCount(day);
+    if (activeFilter === 'blocked') return ob > 0;
+    if (activeFilter === 'complete') return dayProgress(day).pct === 100;
+    if (activeFilter === 'incomplete') return dayProgress(day).pct < 100;
+    return true;
+  });
+  document.getElementById('dayGrid').innerHTML = filtered.map(day => renderDay(day)).join('');
+}
+
+function renderDay(day) {
+  const p = dayProgress(day);
+  const isOpen = !!state['_open_'+day.d];
+  const tab = dayInnerTab[day.d] || 'tasks';
+  const blockers = getBlockers(day.d);
+  const openB = blockers.filter(b=>!b.resolved).length;
+  const openAll = openB + dayTaskBlockersOpenCount(day);
+  const showAdd = !!addingBlocker[day.d];
+  const wc = WKC[day.w];
+  const members = Object.keys(day.tasks);
+
+  // Check if this day has any tasks for current role
+  const myMembers = currentRole ? currentRole.members : [];
+  const hasMyTasks = members.some(m => myMembers.includes(m));
+
+  /* TASKS TAB */
+  const tasksHtml = `
+    <div class="member-grid">
+      ${members.map(m => {
+        const tasks = day.tasks[m];
+        const col = MC[m] || '#888';
+        const isMyCol = myMembers.includes(m);
+        const canEdit = currentRole && currentRole.canEdit.includes(m);
+        return `<div class="mcol${isMyCol?' my-col':''}">
+          <div class="ml">
+            <span class="ml-dot" style="background:${col}"></span>
+            ${m==='ALL'?'All members':m}
+            ${isMyCol&&!currentRole.admin?`<span class="ml-you">You</span>`:''}
+          </div>
+          <div class="tlist">
+            ${tasks.map(t => {
+              const k = tkey(day.d,m,t);
+              const safeT = t.replace(/'/g,"\\'");
+              const val = getTaskProgress(day.d,m,t);
+              const done = val >= 100;
+              const tb = taskBlockers(day.d,m,t);
+              const openTB = tb.filter(b=>!b.resolved).length;
+              const showForm = !!addingTaskBlocker[k];
+              return `<div class="ti-wrap">
+                <div class="ti-top">
+                  <span class="ti-txt${done?' done':''}">${t}</span>
+                  ${openTB>0?`<span class="ti-blk-badge">⚠ ${openTB}</span>`:''}
+                </div>
+                <div class="ti-bar-row">
+                  <div class="ti-bar"><div class="ti-bar-f" style="width:${val}%;background:${done?'var(--success)':col}"></div></div>
+                  <span class="ti-pct">${val}%</span>
+                </div>
+                <div class="ti-status">${val}% completed · ${100-val}% incomplete</div>
+                ${canEdit?`<div class="ti-controls">
+                  ${[0,25,50,75,100].map(p=>`<button class="ti-pbtn${val===p?' active':''}" onclick="setTaskProgress(${day.d},'${m}','${safeT}',${p})">${p}%</button>`).join('')}
+                  <button class="ti-blk-btn" onclick="startAddTaskBlocker('${k}')">⚠ + Blocker</button>
+                </div>`:''}
+                ${showForm?`<div class="ti-blk-form">
+                  <div class="bf-row">
+                    <input class="bf-inp" id="tbf_desc_${k}" placeholder="Describe the blocker" oninput="document.getElementById('tbf_err_${k}').textContent=''">
+                    <select class="bf-sel" id="tbf_sev_${k}">
+                      <option value="high">High</option>
+                      <option value="med">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <div class="bf-btns">
+                    <button class="bf-save" onclick="addTaskBlocker(${day.d},'${m}','${safeT}')">Save</button>
+                    <button class="bf-cancel" onclick="cancelAddTaskBlocker('${k}')">Cancel</button>
+                  </div>
+                  <div class="bf-err" id="tbf_err_${k}"></div>
+                </div>`:''}
+                ${tb.length?`<div class="ti-blk-list">
+                  ${tb.map(b=>`<div class="ti-blk-item${b.resolved?' resolved':''}">
+                    <div class="tbi-row">
+                      <span class="tbi-desc${b.resolved?' st':''}">${b.desc} <span class="sev-pill sev-${b.sev}" style="margin-left:4px">${b.sev}</span>${b.resolved?'<span class="res-pill" style="margin-left:4px">Resolved</span>':''}</span>
+                      ${canEdit?`<span class="blk-actions">
+                        <button class="blk-btn res" onclick="resolveTaskBlocker(${day.d},'${m}','${safeT}',${b.id})">${b.resolved?'Reopen':'Resolve'}</button>
+                        <button class="blk-btn del" onclick="deleteTaskBlocker(${day.d},'${m}','${safeT}',${b.id})">✕</button>
+                      </span>`:''}
+                    </div>
+                  </div>`).join('')}
+                </div>`:''}
+              </div>`;
+            }).join('')}
+          </div>
+          ${!canEdit ? `<div class="ro-txt">View only</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="gate">
+      <div class="gate-lbl">✓ Completion gate</div>
+      <div class="gate-items">${day.gate.map(g=>`<span class="gi">${g}</span>`).join('')}</div>
+    </div>`;
+
+  /* BLOCKERS TAB */
+  const canManageDayBlockers = !currentRole.viewOnly;
+  const blockersHtml = `<div class="blockers-sec">
+    <div class="bsec-hd">
+      <div class="bsec-title">⚠ Blockers ${openB>0?`<span class="blk-pill">${openB} open</span>`:''}</div>
+      ${!showAdd && canManageDayBlockers?`<button class="add-blk-btn" onclick="startAdd(${day.d})">+ Add blocker</button>`:''}
+    </div>
+    ${showAdd?`<div class="blk-form">
+      <div class="bf-row">
+        <input class="bf-inp" id="bf_desc_${day.d}" placeholder="Describe the blocker" oninput="document.getElementById('bf_err_${day.d}').textContent=''">
+        <input class="bf-inp" id="bf_owner_${day.d}" placeholder="Owner (M1–M5)" style="max-width:110px">
+        <select class="bf-sel" id="bf_sev_${day.d}">
+          <option value="high">High</option>
+          <option value="med">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="bf-btns">
+        <button class="bf-save" onclick="addBlocker(${day.d})">Save</button>
+        <button class="bf-cancel" onclick="cancelAdd(${day.d})">Cancel</button>
+      </div>
+      <div class="bf-err" id="bf_err_${day.d}"></div>
+    </div>`:''}
+    <div class="blk-list">
+      ${blockers.length ? blockers.map(b=>`
+        <div class="blk-item${b.resolved?' resolved':''}">
+          <div class="blk-top">
+            <div class="blk-body">
+              <div class="blk-desc${b.resolved?' st':''}">${b.desc}</div>
+              <div class="blk-meta">
+                <span class="sev-pill sev-${b.sev}">${b.sev}</span>
+                ${b.owner?`<span class="blk-owner">${b.owner}</span>`:''}
+                <span class="blk-date">${b.date}</span>
+                ${b.resolved?`<span class="res-pill">Resolved</span>`:''}
+              </div>
+            </div>
+            ${canManageDayBlockers?`<div class="blk-actions">
+              <button class="blk-btn res" onclick="resolveBlocker(${day.d},${b.id})">${b.resolved?'Reopen':'Resolve'}</button>
+              <button class="blk-btn del" onclick="deleteBlocker(${day.d},${b.id})">✕</button>
+            </div>`:''}
+          </div>
+        </div>`).join('') : `<div class="blk-empty">No blockers on this day</div>`}
+    </div>
+  </div>`;
+
+  return `<div class="day-card${openAll>0?' has-blocker':''}" id="dc${day.d}">
+    <div class="day-hd" onclick="toggleDay(${day.d})">
+      <span class="day-num">Day ${day.d}</span>
+      <span class="day-title">${day.title}</span>
+      <div class="day-meta">
+        ${!hasMyTasks&&!currentRole.admin?`<span style="font-size:10px;color:var(--text-3);padding:2px 7px;border-radius:100px;border:0.5px solid var(--border)">Read only</span>`:''}
+        ${openAll>0?`<span class="blk-pill">⚠ ${openAll}</span>`:''}
+        <span class="wk-pill" style="background:${wc.bg};color:${wc.text}">W${day.w}</span>
+        <span class="day-prog">${p.done}/${p.total}</span>
+        <div class="day-bar"><div class="day-bar-f" style="width:${p.pct}%;background:${WBC[day.w]}"></div></div>
+        <span class="chev${isOpen?' open':''}">⌄</span>
+      </div>
+    </div>
+    <div class="day-body${isOpen?' open':''}">
+      <div class="inner-tabs">
+        <button class="itab${tab==='tasks'?' active':''}" onclick="setInnerTab(${day.d},'tasks');event.stopPropagation()">Tasks (${p.done}/${p.total})</button>
+        <button class="itab${tab==='blockers'?' active':''}${openB>0?' has-blocker':''}" onclick="setInnerTab(${day.d},'blockers');event.stopPropagation()">Blockers${openB>0?` (${openB})`:blockers.length?` (${blockers.length})`:''}</button>
+      </div>
+      ${tab==='tasks' ? tasksHtml : blockersHtml}
+    </div>
+  </div>`;
+}
+
+/* ---------- EXPORT ---------- */
+function exportProgress() {
+  let csv = 'Day,Title,Week,Type,Content,Member,Status\n';
+  DAYS.forEach(day => {
+    Object.entries(day.tasks).forEach(([m,tasks]) => {
+      tasks.forEach(t => {
+        csv += `${day.d},"${day.title}",${day.w},Task,"${t}",${m},${getTaskProgress(day.d,m,t)}% complete\n`;
+        taskBlockers(day.d,m,t).forEach(b => {
+          csv += `${day.d},"${day.title}",${day.w},TaskBlocker,"${t}: ${b.desc}","${m}/${b.sev}",${b.resolved?'Resolved':'Open'}\n`;
+        });
+      });
+    });
+    getBlockers(day.d).forEach(b => {
+      csv += `${day.d},"${day.title}",${day.w},Blocker,"${b.desc}","${b.sev}/${b.owner||''}",${b.resolved?'Resolved':'Open'}\n`;
+    });
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'transport_erp_progress.csv';
+  a.click();
+}
+
+/* ---------- MAIN RENDER ---------- */
+function render() {
+  renderStats();
+  renderBlockerPanel();
+  renderWeekTabs();
+  renderDays();
+}
+
+/* ---------- BOOT ---------- */
+buildRoleGrid();
+loadState();
+</script>
+</body>
+</html>
