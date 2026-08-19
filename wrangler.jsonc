@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "transport-erp-tracker",
+  "name": "tasktracker",
   "compatibility_date": "2026-08-14",
   "main": "src/index.js",
   "assets": {
@@ -10,8 +10,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "transport-erp-tracker-db",
-      "database_id": "REPLACE_WITH_YOUR_DATABASE_ID"
+      "database_name": "task-tracker",
+      "database_id": "93c6a556-6ac1-4bc0-aa97-6f0ddcf82e69"
     }
   ]
 }
